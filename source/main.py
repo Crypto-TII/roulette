@@ -6,116 +6,163 @@ from rng import RNG_OS
 import solver
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 def minimal_working_example():
-	K = 2
-	nb_of_inequalities = 8000
-	rng = RNG_OS()
-	kem = KyberKEM(K, rng)
-	[public_key, private_key, s, e] = kem.keygen(return_internals=True)
-	solution = np.concatenate((s.ravel(), e.ravel()))
-	[a, b] = solver.generate_inequalities(kem, public_key, nb_of_inequalities)
-	is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
-	solver.solve_inequalities(kem, a, b, is_geq_zero, verbose=True, solution=solution)
+    print("Minimal working example...")
+    K = 3
+    nb_of_inequalities = 7000
+    rng = RNG_OS()
+    kem = KyberKEM(K, rng)
+    [public_key, private_key, s, e] = kem.keygen(return_internals=True)
+    solution = np.concatenate((s.ravel(), e.ravel()))
+    [a, b] = solver.generate_inequalities(kem, public_key, nb_of_inequalities)
+    is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
+    time_start = time.time()
+    solver.solve_inequalities(kem, a, b, is_geq_zero,
+            verbose=True, solution=solution)
+    time_end = time.time()
+    print("Elapsed time: {:.1f} seconds".format(time_end-time_start))
 
 def figure_inequality_filtering():
-	K = 2
-	nb_of_inequalities = np.arange(0, 15000+1, step = 1000)
-	nb_of_runs = 10
-	N = len(nb_of_inequalities)
-	prob_correct = np.zeros((N, 2, nb_of_runs), dtype=float)
-	rng = RNG_OS()
-	kem = KyberKEM(K, rng)
-	indices = [None, 9]
-	for i in range(N):
-		for k in range(nb_of_runs):
-			[public_key, private_key, s, e] = kem.keygen(return_internals=True)
-			solution = np.concatenate((s.ravel(), e.ravel()))
-			for j in range(2):
-				[a, b] = solver.generate_inequalities(kem, public_key, nb_of_inequalities[i], index=indices[j])
-				is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
-				x = solver.solve_inequalities(kem, a, b, is_geq_zero, verbose=False)
-				nb_correct = np.count_nonzero(solution == x)
-				print("Number of correctly guessed unknowns: " + str(nb_correct))
-				prob_correct[i, j, k] = nb_correct / len(x)
-	prob_correct = np.mean(prob_correct, axis = 2)
-	header = "NB_OF_INEQUALITIES FILTERED UNFILTERED"
-	write_to_file("solver-inequality-filtering.dat", header, nb_of_inequalities, prob_correct)
-	plot(nb_of_inequalities, prob_correct, ["Filtered", "Unfiltered"])
+    print("Generating figure of inequality filtering...")
+    filename = "solver-inequality-filtering"
+    K = 2
+    nb_of_inequalities = np.arange(0, 15000+1, step = 500)
+    nb_of_runs = 10
+    header = "NB_OF_INEQUALITIES FILTERED UNFILTERED"
+    legend = ["Filtered", "Unfiltered"]
+    nb_of_points = len(nb_of_inequalities)
+    nb_of_inequalities_max = max(nb_of_inequalities)
+    prob_correct = np.zeros((nb_of_points, 2, nb_of_runs), dtype=float)
+    rng = RNG_OS()
+    kem = KyberKEM(K, rng)
+    indices = [None, 9]
+    for k in range(nb_of_runs):
+        for j in range(2):
+            print(legend[j])
+            [public_key, private_key, s, e] = kem.keygen(
+                    return_internals=True)
+            solution = np.concatenate((s.ravel(), e.ravel()))
+            [a, b] = solver.generate_inequalities(kem, public_key,
+                    nb_of_inequalities_max, index=indices[j])
+            is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
+            for i in range(nb_of_points):
+                print('Solving {:d} inequalities'
+                        .format(nb_of_inequalities[i]))
+                ind = np.random.permutation(nb_of_inequalities_max)
+                ind = ind[:nb_of_inequalities[i]]
+                x = solver.solve_inequalities(kem, a[ind,:], b[ind],
+                        is_geq_zero[ind], verbose=False)
+                nb_correct = np.count_nonzero(solution == x)
+                print("Number of correctly guessed unknowns: {:d}/{:d}"
+                        .format(nb_correct, len(solution)))
+                prob_correct[i, j, k] = nb_correct / len(x)
+    prob_correct = np.mean(prob_correct, axis = 2)
+    write_to_file(filename + ".dat", header, nb_of_inequalities, prob_correct)
+    plot(filename + ".png", nb_of_inequalities, prob_correct, legend)
 
 def figure_security_level():
-	K = [2, 3, 4] 
-	nb_of_inequalities = np.arange(0, 15000+1, step = 1000)
-	nb_of_runs = 10
-	N = len(nb_of_inequalities)
-	prob_correct = np.zeros((N, 3, nb_of_runs), dtype=float)
-	rng = RNG_OS()
-	for i in range(3):
-		kem = KyberKEM(K[i], rng)
-		for k in range(nb_of_runs):
-			[public_key, private_key, s, e] = kem.keygen(return_internals=True)
-			solution = np.concatenate((s.ravel(), e.ravel()))
-			for j in range(N):
-				[a, b] = solver.generate_inequalities(kem, public_key, nb_of_inequalities[j])
-				is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
-				x = solver.solve_inequalities(kem, a, b, is_geq_zero, verbose=False)
-				nb_correct = np.count_nonzero(solution == x)
-				print("Number of correctly guessed unknowns: " + str(nb_correct))
-				prob_correct[j, i, k] = nb_correct / len(x)
-	prob_correct = np.mean(prob_correct, axis = 2)
-	header = "NB_OF_INEQUALITIES TWO THREE FOUR"
-	write_to_file("solver-security-level.dat", header, nb_of_inequalities, prob_correct)
-	plot(nb_of_inequalities, prob_correct, ["K=2", "K=3", "K=4"])
+    print("Generating figure of security level...")
+    filename = "solver-security-level"
+    K = [2, 3, 4]
+    nb_of_inequalities = np.arange(0, 15000+1, step=500)
+    nb_of_runs = 10
+    header = "NB_OF_INEQUALITIES TWO THREE FOUR"
+    legend = ["Kyber512", "Kyber768", "Kyber1024"]
+    (nb_of_curves, nb_of_points) = (len(K), len(nb_of_inequalities))
+    nb_of_inequalities_max = max(nb_of_inequalities)
+    prob_correct = np.zeros((nb_of_points, nb_of_curves, nb_of_runs),
+            dtype=float)
+    rng = RNG_OS()
+    for j in range(nb_of_curves):
+        kem = KyberKEM(K[j], rng)
+        for k in range(nb_of_runs):
+            [public_key, private_key, s, e] = kem.keygen(
+                    return_internals=True)
+            solution = np.concatenate((s.ravel(), e.ravel()))
+            [a, b] = solver.generate_inequalities(kem, public_key,
+                    nb_of_inequalities_max)
+            is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
+            for i in range(nb_of_points):
+                print('Solving {:d} inequalities'
+                        .format(nb_of_inequalities[i]))
+                ind = np.random.permutation(nb_of_inequalities_max)
+                ind = ind[:nb_of_inequalities[i]]
+                x = solver.solve_inequalities(kem, a[ind,:], b[ind],
+                        is_geq_zero[ind], verbose=False)
+                nb_correct = np.count_nonzero(solution == x)
+                print("Number of correctly guessed unknowns: {:d}/{:d}"
+                        .format(nb_correct, len(solution)))
+                prob_correct[i, j, k] = nb_correct / len(x)
+    prob_correct = np.mean(prob_correct, axis = 2)
+    write_to_file(filename + ".dat", header, nb_of_inequalities, prob_correct)
+    plot(filename + ".png", nb_of_inequalities, prob_correct, legend)
 
 def figure_corrupted_inequalities():
-	K = 2
-	nb_of_inequalities = np.arange(0, 25000+1, step = 1000)
-	nb_of_runs = 5
-	percentage_corrupt = [0, 10, 20, 30, 40, 50, 60]
-	(N, M) = (len(nb_of_inequalities), len(percentage_corrupt))
-	prob_correct = np.zeros((N, M, nb_of_runs), dtype=float)
-	rng = RNG_OS()
-	kem = KyberKEM(K, rng)
-	for i in range(N):
-		for k in range(nb_of_runs):
-			[public_key, private_key, s, e] = kem.keygen(return_internals=True)
-			solution = np.concatenate((s.ravel(), e.ravel()))
-			[a, b] = solver.generate_inequalities(kem, public_key, nb_of_inequalities[i])
-			is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
-			for j in range(M):
-				is_geq_zero_corrupt = solver.corrupt_inequalities(is_geq_zero, percentage_corrupt[j]/100)
-				x = solver.solve_inequalities(kem, a, b, is_geq_zero_corrupt, verbose=False)
-				nb_correct = np.count_nonzero(solution == x)
-				print("Number of correctly guessed unknowns: " + str(nb_correct))
-				prob_correct[i, j, k] = nb_correct / len(x)
-	prob_correct = np.mean(prob_correct, axis = 2)
-	header = "NB_OF_INEQUALITIES P" + ' P'.join(map(str, percentage_corrupt))
-	write_to_file("solver-corrupt.dat", header, nb_of_inequalities, prob_correct)
-	legend = [str(p) + "%" for p in percentage_corrupt]
-	plot(nb_of_inequalities, prob_correct, legend)
+    print("Generating figure of corrupted inequalities...")
+    filename = "solver-corrupt"
+    K = 2
+    nb_of_inequalities = np.arange(0, 30000+1, step = 1000)
+    nb_of_runs = 10
+    percentage_corrupt = [0, 10, 20, 30, 40, 50, 60]
+    header = "NB_OF_INEQUALITIES P" + ' P'.join(map(str, percentage_corrupt))
+    legend = [str(p) + "%" for p in percentage_corrupt]
+    nb_of_inequalities_max = max(nb_of_inequalities)
+    nb_of_points = len(nb_of_inequalities)
+    nb_of_curves = len(percentage_corrupt)
+    prob_correct = np.zeros((nb_of_points, nb_of_curves, nb_of_runs),
+            dtype=float)
+    rng = RNG_OS()
+    kem = KyberKEM(K, rng)
+    for k in range(nb_of_runs):
+        [public_key, private_key, s, e] = kem.keygen(return_internals=True)
+        solution = np.concatenate((s.ravel(), e.ravel()))
+        [a, b] = solver.generate_inequalities(kem, public_key,
+                nb_of_inequalities_max)
+        is_geq_zero = solver.evaluate_inequalities_fast(a, b, solution)
+        for i in range(nb_of_points):
+            print('Solving {:d} inequalities'
+                    .format(nb_of_inequalities[i]))
+            for j in range(nb_of_curves):
+                ind = np.random.permutation(nb_of_inequalities_max)
+                ind = ind[:nb_of_inequalities[i]]
+                is_geq_zero_corrupt = solver.corrupt_inequalities(
+                        is_geq_zero[ind], percentage_corrupt[j]/100)
+                x = solver.solve_inequalities(kem, a[ind,:], b[ind],
+                        is_geq_zero_corrupt, verbose=False)
+                nb_correct = np.count_nonzero(solution == x)
+                print("Number of correctly guessed unknowns: {:d}/{:d}"
+                        .format(nb_correct, len(solution)))
+                prob_correct[i, j, k] = nb_correct / len(x)
+    prob_correct = np.mean(prob_correct, axis = 2)
+    write_to_file(filename + ".dat", header, nb_of_inequalities, prob_correct)
+    plot(filename + ".png", nb_of_inequalities, prob_correct, legend)
 
 def write_to_file(filename, header, nb_of_inequalities, prob_correct):
-	f = open(filename, "w")
-	f.write(header + "\n")
-	for i in range(len(nb_of_inequalities)):
-		f.write(str(nb_of_inequalities[i]) + " " + ' '.join(map(str, np.round(prob_correct[i], decimals=3))) + "\n")
-	f.close()
+    f = open(filename, "w")
+    f.write(header + "\n")
+    for i in range(len(nb_of_inequalities)):
+        f.write(str(nb_of_inequalities[i]) + " " + ' '.join(map(str,
+                np.round(prob_correct[i], decimals=3))) + "\n")
+    f.close()
 
-def plot(nb_of_inequalities, prob_correct, legend):
-	plt.plot(nb_of_inequalities, prob_correct)
-	plt.gca().set_ylim([0.0, 1.0])
-	plt.xlabel('Number of inequalities')
-	plt.ylabel('Probability of correctly guessing an unknown')
-	plt.legend(legend)
-	plt.show()
+def plot(filename, nb_of_inequalities, prob_correct, legend):
+    plt.plot(nb_of_inequalities, prob_correct)
+    plt.gca().set_ylim([0.0, 1.0])
+    plt.xlabel('Number of inequalities')
+    plt.ylabel('Probability of correctly guessing an unknown')
+    plt.legend(legend, loc="lower right")
+    plt.savefig(filename)
+    plt.close()
 
 def main():
-	test_kyber.main()
-	solver.test()
-	minimal_working_example()
-	#figure_inequality_filtering()
-	#figure_security_level()
-	#figure_corrupted_inequalities()
+    test_kyber.main()
+    solver.test()
+    minimal_working_example()
+    figure_inequality_filtering()
+    figure_security_level()
+    figure_corrupted_inequalities()
 
 if __name__ == "__main__":
     main()
