@@ -166,7 +166,7 @@ def solve_inequalities(kem, a, b, is_geq_zero, max_nb_of_iterations=16,
     mean = np.matmul(a, mean)
     variance = np.matmul(a_squared, variance)
     zscore = np.divide(mean + 0.5 + b, np.sqrt(variance))
-    p_failure_is_reality = 1 - norm.cdf(zscore)
+    p_failure_is_reality = norm.cdf(zscore)
     p_failure_is_reality = np.mean(p_failure_is_reality)
     p_inequality_is_correct = min(
             p_failure_is_reality / p_failure_is_observed, 1.0)
