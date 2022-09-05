@@ -65,7 +65,7 @@ def generate_inequalities(
             b2 = e2 + dv
             m = np.unpackbits(m, bitorder='little')
             _, error = manipulate_ciphertext(kem.pke, c, np.arange(N))
-            b2[np.logical_and(error == 832, m == 0)] -= 1
+            b2[np.logical_and(error == 832, m == 0)] -= 1 # 832 = floor(prime/4)
             b2[np.logical_and(error == 833, m == 1)] += 1
             bias = abs(b2)
             ind = np.argmin(bias) if index is None else index
@@ -140,8 +140,10 @@ def generate_equalities(kem, public_key, verbose=True):
                     kem.pke.INTT(A[i,j]))
     return a, b
 
-def solve_inequalities(kem, a, b, is_geq_zero, max_nb_of_iterations=16,
-            verbose=True, solution=None):
+def solve_inequalities(kem, a, b, is_geq_zero,
+            max_nb_of_iterations=16,
+            verbose=True,
+            solution=None): # analyze convergence rate with a known solution
     if verbose:
         print("Solving inequalities...")
     eta = kem.pke.ETA1
@@ -166,7 +168,7 @@ def solve_inequalities(kem, a, b, is_geq_zero, max_nb_of_iterations=16,
     mean = np.matmul(a, mean)
     variance = np.matmul(a_squared, variance)
     zscore = np.divide(mean + 0.5 + b, np.sqrt(variance))
-    p_failure_is_reality = norm.cdf(zscore)
+    p_failure_is_reality = norm.cdf(zscore) # central limit theorem
     p_failure_is_reality = np.mean(p_failure_is_reality)
     p_inequality_is_correct = min(
             p_failure_is_reality / p_failure_is_observed, 1.0)
@@ -194,7 +196,7 @@ def solve_inequalities(kem, a, b, is_geq_zero, max_nb_of_iterations=16,
                 nb_of_unknowns), dtype=float)
         for j in range(nb_of_values):
             zscore = np.divide(a*x[j] + mean + 0.5, np.sqrt(variance))
-            psuccess[j,:,:] = norm.cdf(zscore)
+            psuccess[j,:,:] = norm.cdf(zscore) # central limit theorem
         psuccess = np.transpose(psuccess, axes=[2,0,1])
         psuccess = \
             np.multiply(psuccess, prob_geq_zero[np.newaxis,np.newaxis,:]) + \

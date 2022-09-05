@@ -7,8 +7,10 @@ import solver
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import sys
 
 def minimal_working_example():
+    """Solves one system of inequalities and tracks the convergence rate"""
     print("Minimal working example...")
     K = 3
     nb_of_inequalities = 7000
@@ -24,12 +26,12 @@ def minimal_working_example():
     time_end = time.time()
     print("Elapsed time: {:.1f} seconds".format(time_end-time_start))
 
-def figure_inequality_filtering():
+def figure_inequality_filtering(nb_of_runs = 10):
+    """Reproduces a figure from the CHES 2022 paper"""
     print("Generating figure of inequality filtering...")
     filename = "solver-inequality-filtering"
     K = 2
     nb_of_inequalities = np.arange(0, 15000+1, step = 500)
-    nb_of_runs = 10
     header = "NB_OF_INEQUALITIES FILTERED UNFILTERED"
     legend = ["Filtered", "Unfiltered"]
     nb_of_points = len(nb_of_inequalities)
@@ -62,12 +64,12 @@ def figure_inequality_filtering():
     write_to_file(filename + ".dat", header, nb_of_inequalities, prob_correct)
     plot(filename + ".png", nb_of_inequalities, prob_correct, legend)
 
-def figure_security_level():
+def figure_security_level(nb_of_runs = 10):
+    """Reproduces a figure from the CHES 2022 paper"""
     print("Generating figure of security level...")
     filename = "solver-security-level"
     K = [2, 3, 4]
     nb_of_inequalities = np.arange(0, 15000+1, step=500)
-    nb_of_runs = 10
     header = "NB_OF_INEQUALITIES TWO THREE FOUR"
     legend = ["Kyber512", "Kyber768", "Kyber1024"]
     (nb_of_curves, nb_of_points) = (len(K), len(nb_of_inequalities))
@@ -99,12 +101,12 @@ def figure_security_level():
     write_to_file(filename + ".dat", header, nb_of_inequalities, prob_correct)
     plot(filename + ".png", nb_of_inequalities, prob_correct, legend)
 
-def figure_corrupted_inequalities():
+def figure_corrupted_inequalities(nb_of_runs = 10):
+    """Reproduces a figure from the CHES 2022 paper"""
     print("Generating figure of corrupted inequalities...")
     filename = "solver-corrupt"
     K = 2
     nb_of_inequalities = np.arange(0, 30000+1, step = 1000)
-    nb_of_runs = 10
     percentage_corrupt = [0, 10, 20, 30, 40, 50, 60]
     header = "NB_OF_INEQUALITIES P" + ' P'.join(map(str, percentage_corrupt))
     legend = [str(p) + "%" for p in percentage_corrupt]
@@ -140,6 +142,7 @@ def figure_corrupted_inequalities():
     plot(filename + ".png", nb_of_inequalities, prob_correct, legend)
 
 def write_to_file(filename, header, nb_of_inequalities, prob_correct):
+    """Exports data points such that LaTeX TikZ/pgfplots can import them"""
     f = open(filename, "w")
     f.write(header + "\n")
     for i in range(len(nb_of_inequalities)):
@@ -157,12 +160,20 @@ def plot(filename, nb_of_inequalities, prob_correct, legend):
     plt.close()
 
 def main():
+    nb_of_runs = 10
+    if len(sys.argv) == 2:
+        try:
+            nb_of_runs = int(sys.argv[1])
+        except ValueError:
+            raise TypeError("Number of runs must be an integer")
+        if nb_of_runs < 1:
+            raise TypeError("Number of runs must exceed 0")
     test_kyber.main()
     solver.test()
     minimal_working_example()
-    figure_inequality_filtering()
-    figure_security_level()
-    figure_corrupted_inequalities()
+    figure_inequality_filtering(nb_of_runs=nb_of_runs)
+    figure_security_level(nb_of_runs=nb_of_runs)
+    figure_corrupted_inequalities(nb_of_runs=nb_of_runs)
 
 if __name__ == "__main__":
     main()
